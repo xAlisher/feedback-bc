@@ -1,0 +1,10 @@
+{
+  "name": "feedback_core",
+  "version": "0.1.0",
+  "description": "Feedback app crypto core — seals feedback to the Feedback Desk (libsodium crypto_box_seal)",
+  "author": "xAlisher",
+  "type": "core",
+  "category": "messaging",
+  "main": "feedback_core_plugin",
+  "dependencies": []
+}

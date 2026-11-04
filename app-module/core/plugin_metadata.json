@@ -1,0 +1,10 @@
+{
+  "name": "feedback_core",
+  "version": "0.1.0",
+  "type": "core",
+  "author": "xAlisher",
+  "description": "Feedback app crypto core",
+  "main": "feedback_core_plugin",
+  "category": "messaging",
+  "dependencies": []
+}

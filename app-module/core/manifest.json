@@ -1,0 +1,14 @@
+{
+  "name": "feedback_core",
+  "version": "0.1.0",
+  "type": "core",
+  "author": "xAlisher",
+  "description": "Feedback app crypto core — seals feedback to the Feedback Desk",
+  "category": "messaging",
+  "dependencies": [],
+  "icon": "",
+  "main": {
+    "linux-amd64": "feedback_core_plugin.so"
+  },
+  "manifestVersion": "0.1.0"
+}

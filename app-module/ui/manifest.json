@@ -1,0 +1,12 @@
+{
+  "name": "feedback_ui",
+  "version": "0.1.0",
+  "type": "ui_qml",
+  "author": "xAlisher",
+  "description": "Send feedback on Basecamp — sealed to the Feedback Desk over devnet.",
+  "category": "messaging",
+  "dependencies": ["feedback_core", "delivery_module"],
+  "icon": "",
+  "main": { "linux-amd64": "Main.qml" },
+  "manifestVersion": "0.1.0"
+}
