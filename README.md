@@ -106,6 +106,20 @@ The decryption key is an operator deployment key, not a wallet seed. No one type
   on disk. Trade-off: decryption then needs a keycard tap, which a headless always-on Desk cannot do,
   so v1 uses the deployment-key model.
 
+## Who receives (Option A: one Desk, shared view)
+
+The whole team receives via a shared view, decoupled from decryption. Decided: **one Feedback Desk
+decrypts, then bridges each response into a private Discord channel** (a channel webhook) that the team
+reads. "We both receive" means both are in that channel; it scales to the team for free.
+
+- **Secrets on the Desk host** (never in any repo): the Desk private key + the Discord webhook URL.
+- **Dedup by `messageHash`** so Store backfill on restart does not re-post old feedback into the channel.
+- **Privacy boundary:** confidentiality now rests on that channel being locked down, and the optional
+  Contact field (PII) lands in Discord, a centralized service. Acceptable as a testnet interim; a
+  dashboard or a Logos-native destination can replace the bridge later.
+- **Alternative, not now:** encrypt-to-many, so each recipient decrypts independently (wrap a content
+  key per recipient public key). More build, and adding a teammate means a Feedback app update.
+
 ## Transport mechanics (delivery_module)
 
 - **Shared node, adopt-or-create.** Try `createNode(devnet cfg)`; on `Context already initialized`,
@@ -145,7 +159,8 @@ calm banner ("saved, will send when messaging allows"), and a background watcher
 - **Multi-cluster.** One delivery node per cluster in a short, curated list, covering the union of
   clusters users run on (edited as fleets change).
 - **Live path.** Subscribe to the feedback topics, receive `messageReceived` (`source: live`), decrypt
-  with the Desk private key, append to a local store, dedup by `messageHash`.
+  with the Desk private key, append to a local store, dedup by `messageHash`, and post the decrypted
+  response to the team's private Discord channel (webhook). Dedup prevents re-posting on backfill.
 - **Backfill path (verified).** `storeQuery` pulls history for anything missed while offline. Required
   query keys: `requestId`, `includeData`, `paginationForward`; plus optional `contentTopics`,
   `timeStart`/`timeEnd`. Note: not every peer serves Store, so query a vetted store peer or run our own
@@ -169,5 +184,6 @@ Run against a live Logos devnet node (delivery_module 0.3.0), 2026-11-04:
 3. Store retention window needed on the store node.
 
 Decided: target devnet (`logos.dev`, RLN disabled, verified); seal-to-Desk encryption, team-only,
-one-way for v1, operator deployment key (no recovery phrase); no reliance on fleet standardization
-(Feedback Desk covers the union).
+one-way for v1, operator deployment key (no recovery phrase); recipients = Option A (one Desk decrypts,
+bridges to a private Discord channel; team reads there); no reliance on fleet standardization (Feedback
+Desk covers the union).
