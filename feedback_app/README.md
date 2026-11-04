@@ -32,10 +32,37 @@ README's "What is verified"); the core just ports the proven `feedback_common` l
 - Topics (4-segment Waku): `/logos-feedback/1/quick/json`, `/logos-feedback/1/questionnaire/json`.
 - Wire: `send` the bytes `base64(crypto_box_seal(payload_json))`.
 
+## Build architecture — findings (2026-11-04, evidence-based)
+
+Two viable paths were investigated; both de-risked:
+
+**Proven:**
+- **Delivery needs no C++.** `delivery-probe` (a pure-QML module) drives delivery entirely from QML via
+  `logos.callModule("delivery_module", method, params)` and `logos.onModuleEvent(...)`. So createNode /
+  start / rlnState / send / events are all reachable from QML/JS.
+- **The seal works in JS and is wire-compatible with the Desk.** `tweetnacl` + `tweetnacl-sealedbox`
+  (blake2b nonce + `nacl.box`, byte-identical to libsodium `crypto_box_seal`) sealed a payload that the
+  Desk's PyNaCl `open_sealed` decrypted exactly. Interop proven in node.
+- **Native path template exists.** `receiver-basecamp` is a working C++/QML Basecamp module doing
+  libsodium crypto + delivery (async fire-and-forget `createNode` to avoid the ui-host deadlock,
+  clusterId=2 config). It builds and ships.
+
+**Option A — pure QML/JS module** (like delivery-probe): QML UI + vendored `tweetnacl`/blake2b/sealedbox
++ `logos.callModule` for delivery. No C++, no nix compile, packaged like delivery-probe.
+- Open question: does Qt's QML V4 engine expose a **CSPRNG** (`crypto.getRandomValues`)? The sealed box's
+  ephemeral key needs secure randomness; `Math.random` would weaken confidentiality. Couldn't verify with
+  the standalone nix `qml` runtime (core-dumps on env); the real test is a one-screen probe inside Basecamp.
+
+**Option B — native core** (templated on `receiver-basecamp`): C++ + libsodium `crypto_box_seal` (proper
+CSPRNG) for the seal, delivery from C++ or QML, QML UI. Correct crypto, but a real nix/CMake/.rep build.
+
+**Decision:** prefer **A if the V4 CSPRNG probe passes** (vastly simpler, nothing to compile); fall back
+to **B** otherwise (crypto correctness over simplicity — the payload carries contact PII).
+
 ## Build (remaining)
 
-1. Scaffold the module from the Basecamp module template (pin the SDK to the template rev).
-2. Implement the native core (libsodium link) + expose `send(payloadJson)` / `state` to QML.
-3. Wire the QML forms to the core; enforce limits in-input.
-4. `mkLogosModule` / module builder → `.lgx`; load in Basecamp; **render-verify** the forms headlessly
-   (390/700/1280) and run a real send → confirm it lands on the Desk.
+1. Resolve A-vs-B: probe `crypto.getRandomValues` inside Basecamp's QML (one small view).
+2. Package the module: QML forms (drafts here) + delivery calls + seal (JS vendored, or native per B).
+3. Enforce size limits in-input; wire to the Desk pubkey (`pubkey.txt`).
+4. Build/package the `.lgx`; load in Basecamp; **render-verify** (390/700/1280) + a real send that lands
+   on the live Desk (and posts to Discord).
