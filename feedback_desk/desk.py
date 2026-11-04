@@ -37,6 +37,34 @@ def lc(cfg: dict, *args: str, timeout: int = 40) -> str:
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
 
 
+def ensure_node(cfg: dict) -> None:
+    """Bring up the daemon + a devnet delivery node (adopt-or-create), wait until Connected.
+
+    Readiness is confirmed by a successful `module load` (retried), not by the `status`
+    subcommand, which can hang right after a daemon restart.
+    """
+    subprocess.Popen([cfg["logosctl"], "--config-dir", cfg["session_dir"], "-D"],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(12):  # wait for the daemon to accept commands
+        try:
+            out = lc(cfg, "module", "load", "delivery_module", timeout=20)
+        except subprocess.TimeoutExpired:
+            out = ""
+        if '"status":"ok"' in out or "loaded" in out:
+            break
+        time.sleep(3)
+    cn = lc(cfg, "call", "delivery_module", "createNode", json.dumps(cfg["node_config"]), timeout=45)
+    if "already initialized" in cn:
+        print("[desk] adopting existing delivery node")
+    lc(cfg, "call", "delivery_module", "start", timeout=20)
+    for i in range(18):
+        if '"value":"Connected"' in lc(cfg, "call", "delivery_module", "getConnectionStatus", timeout=15):
+            print(f"[desk] node Connected ({i*5}s)")
+            return
+        time.sleep(5)
+    print("[desk] warning: node not fully Connected; proceeding (PartiallyConnected may still work)")
+
+
 class Store:
     """Append-only JSONL store + a persisted set of seen messageHashes (dedup)."""
 
@@ -85,7 +113,10 @@ def handle(cfg: dict, store: Store, mhash: str, topic: str, payload_b64: str, so
     if not mhash or not store.is_new(mhash):
         return  # dedup: skip already-seen (prevents re-posting on backfill/restart)
     try:
-        ciphertext = base64.b64decode(payload_b64)      # delivery event wrapping
+        # Wire contract: the Feedback app sends base64(sealed-ciphertext) as the Waku payload
+        # (keeps the payload text-safe). Delivery then base64-wraps the payload in events, so:
+        wire = base64.b64decode(payload_b64)   # event wrapper -> the base64(ciphertext) text
+        ciphertext = base64.b64decode(wire)    # wire -> raw sealed-box ciphertext
         payload = fc.open_sealed(cfg["_priv"], ciphertext)  # decrypt + size limits
     except fc.FeedbackError as e:
         print(f"[skip] {mhash[:10]} limit/validation: {e}", file=sys.stderr)
@@ -139,6 +170,8 @@ def watch_live(cfg: dict, store: Store) -> None:
 def main() -> None:
     cfg = load_config(sys.argv[1] if len(sys.argv) > 1 else "config.json")
     store = Store(cfg["store_file"], cfg["seen_file"])
+    print("[desk] bringing up devnet node…")
+    ensure_node(cfg)
     for topic in cfg["topics"]:
         lc(cfg, "call", "delivery_module", "subscribe", topic)
     print("[desk] backfilling…")

@@ -89,8 +89,10 @@ title 120, message 2000, contact 200, each questionnaire answer 1000, at most 10
 cap of 8192 bytes on the whole decrypted payload. The Feedback app enforces them in the UI and before
 sealing; the Feedback Desk re-checks on decrypt (a sender could bypass the UI) and skips anything over.
 
-**Wire format:** the Waku payload is the raw sealed-box ciphertext. Delivery hands it to the Desk
-base64-wrapped inside events, so the Desk base64-decodes once, then opens the sealed box.
+**Wire format:** the Feedback app sends `base64(sealed-ciphertext)` as the Waku payload (keeps it
+text-safe); delivery base64-wraps the payload again inside events, so the Desk base64-decodes twice
+then opens the sealed box. Verified end-to-end: `desk.py` brought up a devnet node, backfilled a sealed
+message via `storeQuery`, decrypted and stored it, and deduped a re-run.
 
 For v1 this is one-way (no replies) and team-only. A two-way variant (private replies to an anonymous
 submitter) is possible later with a per-submission ephemeral key, out of scope here.

@@ -1,6 +1,14 @@
 {
   "logosctl": "/home/sher/rln-probe/logosctl/logosctl-x86_64.AppImage",
   "session_dir": "/home/sher/rln-probe/session",
+  "node_config": {
+    "logLevel": "ERROR", "mode": "Core", "preset": "logos.dev", "relay": true,
+    "clusterId": 2, "tcpPort": 0, "discv5UdpPort": 0,
+    "entryNodes": [
+      "/dns4/node-01.do-ams3.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmQ9X2xDfPG3uL77V9piYDhjq14JhKCtcmNYsTMKNqrKCj",
+      "/dns4/node-02.gc-us-central1-a.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmUuXhUW9bdJpzN1kfDziFiUZo4bszTk66cvr7uuyCHXR7"
+    ]
+  },
   "topics": ["/logos-feedback/1/quick/json", "/logos-feedback/1/questionnaire/json"],
   "store_peer": "/dns4/node-02.gc-us-central1-a.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmUuXhUW9bdJpzN1kfDziFiUZo4bszTk66cvr7uuyCHXR7",
   "private_key_file": "secret.key",

@@ -4,11 +4,13 @@ Payload schema, size limits, and the seal/open crypto (libsodium sealed box via 
 The Feedback app (C/QML) reimplements seal() with libsodium crypto_box_seal; this is the
 reference + the Desk side. Sealed boxes are interoperable across libsodium bindings.
 
-Wire format: the Waku message payload is the raw sealed-box ciphertext (bytes). The Desk
-gets it base64-wrapped inside delivery events (`messageReceived.payload` / store `payload`),
-so it base64-decodes once to recover the ciphertext, then opens it.
+Wire format: the Waku message payload is base64(sealed-ciphertext) (kept text-safe). Delivery
+then base64-wraps the payload inside events (`messageReceived.payload` / store `payload`), so
+the Desk base64-decodes twice to recover the ciphertext, then opens it. App side: call
+`wire_payload(seal(pub, p))` and pass the result to delivery `send`.
 """
 from __future__ import annotations
+import base64
 import json
 from nacl.public import PrivateKey, PublicKey, SealedBox
 from nacl.encoding import HexEncoder
@@ -85,6 +87,11 @@ def seal(public_hex: str, p: dict) -> bytes:
     """App side: validate + size-check + seal to the Desk public key. Returns ciphertext bytes."""
     box = SealedBox(PublicKey(public_hex.encode(), HexEncoder))
     return box.encrypt(payload_bytes(p))
+
+
+def wire_payload(ciphertext: bytes) -> bytes:
+    """App side: the bytes to hand to delivery `send` = base64 of the sealed ciphertext."""
+    return base64.b64encode(ciphertext)
 
 
 def open_sealed(private_hex: str, ciphertext: bytes) -> dict:
