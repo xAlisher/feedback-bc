@@ -10,8 +10,9 @@ v0.3.0 contract and in live send and Store round-trips run against a Logos devne
 
 Two apps:
 - **Feedback** (`feedback`) — the user-facing app (the two forms), in the official repo.
-- **Feedback Desk** (`feedback_desk`) — the collector that receives, decrypts and stores responses, in
-  a separate repo on a host we run.
+- **Feedback Desk** (`feedback_desk`) — the collector that receives, decrypts and stores responses. Its
+  code lives in this repo under `feedback_desk/`; it is deployed on an always-on host we run (secrets
+  stay on the host, never in the repo).
 
 ---
 
@@ -55,7 +56,7 @@ the Logos stack (which also dogfoods delivery during testnet).
 | Module | Where | Role |
 |---|---|---|
 | **feedback** | official repo (once tested) | the two forms + publish; linkable from the shell |
-| **feedback_desk** | separate repo / host we run | receive + decrypt + store responses; also the Store peer |
+| **feedback_desk** | this repo (`feedback_desk/`), deployed on a host we run | receive + decrypt + store responses; also the Store peer |
 
 Both wrap `delivery_module` (Logos Messaging). The Feedback Desk's node doubles as the Store peer used for
 backfill, so the collecting side owns the one always-on component.
