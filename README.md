@@ -14,6 +14,34 @@ Two apps:
 
 ---
 
+## Status: built and published (2026-11-04)
+
+This spec is now implemented and dogfoodable. The app ships as two modules, **`feedback_ui`** (the two
+forms) and **`feedback_core`** (the native libsodium seal), both published and **signed (xAlisher)** in
+the catalog below. The Feedback Desk runs always-on and bridges to a private Discord channel.
+
+**Basecamp home integration.** An experimental Basecamp build adds a **Share Feedback** tile to the home
+screen: one click installs `feedback_ui` from the catalog if it is missing (signed install dialog), then
+opens it with the Quick-report topic preset to `home`. (It also adds a **Customise / Appearance** tile
+that opens Settings.)
+
+**Install / try it (Linux x86-64):**
+- Add this repository in Basecamp, Settings > Package Repositories: https://apps.alisher.xyz/logos-repo.json
+- Then install **Feedback** from Applications, or click the Share Feedback tile.
+- Experimental Basecamp build with the tile baked in:
+  https://github.com/xAlisher/basecamp-experiments/releases/tag/basecamp-feedback-exp-0.1
+
+**Verified end-to-end (2026-11-04):** install from the catalog, send a quick report, the Desk receives
+it live over devnet, decrypts it, and posts it to the private Discord channel.
+
+**Current send behavior.** `trySend` gates on connection readiness and treats a successful
+`delivery_module.send` call as sent; drafts are queued locally (persisted) and auto-retried when the node
+is not ready. Confirming on the `messagePropagated`/`messageSent` events (per *Transport mechanics*
+below) is a planned hardening, not yet wired. The `home` topic is in both the app and the Desk allowlist
+(`feedback_common.py TOPICS`); adding a Quick-report topic requires both sides or the Desk drops it.
+
+---
+
 ## Why native
 
 A native app in the official repo is the cleanest in-Basecamp path. A web form (Typeform/CryptPad)
