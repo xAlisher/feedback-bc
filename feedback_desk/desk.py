@@ -86,6 +86,29 @@ class Store:
             f.write(mhash + "\n")
 
 
+def _open_payload(priv: str, payload_b64: str) -> dict:
+    """Recover + open the sealed payload. Delivery base64-wraps the Waku payload in events/store;
+    after undoing that wrapper the payload is either the raw ciphertext (C app sends bytes) or
+    base64(ciphertext) (text-safe wire / CLI). The live and store paths differ by one base64 layer,
+    so try opening at both depths and use whichever decrypts; a wrong depth simply fails to open.
+    """
+    raw = base64.b64decode(payload_b64)
+    candidates = [raw]
+    try:
+        candidates.append(base64.b64decode(raw, validate=True))
+    except Exception:
+        pass
+    last: Exception = fc.FeedbackError("no decodable ciphertext")
+    for ct in candidates:
+        try:
+            return fc.open_sealed(priv, ct)
+        except fc.FeedbackError:
+            raise  # a size/validation failure is terminal, not a wrong-depth guess
+        except Exception as e:
+            last = e
+    raise last
+
+
 def to_discord(cfg: dict, record: dict) -> None:
     url = cfg.get("discord_webhook")
     if not url:
@@ -117,11 +140,7 @@ def handle(cfg: dict, store: Store, mhash: str, topic: str, payload_b64: str, so
     if not mhash or not store.is_new(mhash):
         return  # dedup: skip already-seen (prevents re-posting on backfill/restart)
     try:
-        # Wire contract: the Feedback app sends base64(sealed-ciphertext) as the Waku payload
-        # (keeps the payload text-safe). Delivery then base64-wraps the payload in events, so:
-        wire = base64.b64decode(payload_b64)   # event wrapper -> the base64(ciphertext) text
-        ciphertext = base64.b64decode(wire)    # wire -> raw sealed-box ciphertext
-        payload = fc.open_sealed(cfg["_priv"], ciphertext)  # decrypt + size limits
+        payload = _open_payload(cfg["_priv"], payload_b64)  # decrypt + size limits
     except fc.FeedbackError as e:
         print(f"[skip] {mhash[:10]} limit/validation: {e}", file=sys.stderr)
         store.add(mhash, {"mhash": mhash, "skipped": str(e), "ts": time.time()})
