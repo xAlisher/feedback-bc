@@ -31,7 +31,8 @@ Rectangle {
     readonly property int formW: Math.min(width - 2 * Theme.spacing.xlarge, 560)
 
     // ---- state ----
-    property string connState: "connecting"   // connecting | ready
+    property string connState: "connecting"   // connecting | ready  (gates Send)
+    property string deliveryStatus: "starting" // raw delivery_module state for the honest status badge
     property string rlnState: "unknown"
     property int tab: 0                        // 0 quick, 1 questionnaire
     property bool sent: false
@@ -60,6 +61,7 @@ Rectangle {
         onTriggered: {
             var cs = callMod("delivery_module", "getConnectionStatus", [])
             var v = cs ? (cs.value || cs.result || "") : ""
+            if (v) root.deliveryStatus = v
             var rs = callMod("delivery_module", "rlnState", [])
             root.rlnState = rs && rs.value ? (rs.value.state || "unknown") : (rs && rs.state ? rs.state : "unknown")
             if (String(v).indexOf("Connected") >= 0) root.connState = "ready"
@@ -124,15 +126,35 @@ Rectangle {
             y: Theme.spacing.xlarge
             spacing: Theme.spacing.large
 
-            // header + status
+            // ── Header: title + description + honest delivery status badge (receiver-style) ──
             RowLayout {
                 Layout.fillWidth: true; spacing: Theme.spacing.small
-                LogosText { text: "Feedback"; font.pixelSize: 24; font.weight: Theme.typography.weightBold; Layout.fillWidth: true }
-                Rectangle {
-                    width: 9; height: 9; radius: 4.5; Layout.alignment: Qt.AlignVCenter
-                    color: root.connState === "ready" ? Theme.palette.success : Theme.palette.textTertiary
+                ColumnLayout {
+                    spacing: 0
+                    LogosText {
+                        text: "Feedback"
+                        font.pixelSize: Theme.typography.panelTitleText
+                        font.weight: Theme.typography.weightBold
+                    }
+                    LogosText {
+                        text: "Share your feedback with the Basecamp team"
+                        color: Theme.palette.textSecondary
+                        font.pixelSize: Theme.typography.secondaryText
+                        wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    }
                 }
-                LogosText { text: root.connState; color: Theme.palette.textTertiary; font.pixelSize: 12 }
+                Item { Layout.fillWidth: true }
+                LogosBadge {
+                    Layout.alignment: Qt.AlignVCenter
+                    text:  root.deliveryStatus === "Connected"          ? "Delivery connected"
+                         : root.deliveryStatus === "PartiallyConnected" ? "Delivery connecting…"
+                         : root.deliveryStatus === "Disconnected"       ? "Delivery connecting…"
+                         :                                                "Delivery starting…"
+                    color: root.deliveryStatus === "Connected"          ? Theme.palette.success
+                         : root.deliveryStatus === "PartiallyConnected" ? Theme.palette.warning
+                         : root.deliveryStatus === "Disconnected"       ? Theme.palette.warning
+                         :                                                Theme.palette.textSecondary
+                }
             }
 
             // degraded banner
@@ -148,13 +170,14 @@ Rectangle {
                 }
             }
 
-            // tabs
-            RowLayout {
-                Layout.fillWidth: true; spacing: 0; visible: !root.sent
-                Repeater {
-                    model: ["Quick", "Questionnaire"]
-                    LogosTabButton { text: modelData; checked: root.tab === index; Layout.fillWidth: true; onClicked: root.tab = index }
-                }
+            // tabs — LogosTabBar owns the sliding indicator
+            LogosTabBar {
+                id: tabBar
+                Layout.fillWidth: true; visible: !root.sent
+                currentIndex: root.tab
+                onCurrentIndexChanged: root.tab = currentIndex
+                LogosTabButton { text: "Quick" }
+                LogosTabButton { text: "Questionnaire" }
             }
 
             // ---- Quick form ----
