@@ -4,8 +4,13 @@ A native in-Basecamp feedback app for the testnet phase: a quick feedback form r
 Basecamp shell, plus a short questionnaire, both built on the Logos delivery module. This is a draft
 for discussion, not a final design.
 
-Status: draft v0.2 (2026-11-04). Stack claims are grounded in the public `delivery_module` v0.3.0
+Status: draft v0.3 (2026-11-04). Stack claims are grounded in the public `delivery_module` v0.3.0
 contract and in live send and Store round-trips run against a Logos devnet node on 2026-11-04.
+
+Two apps:
+- **Feedback** (`feedback`) — the user-facing app (the two forms), in the official repo.
+- **Feedback Desk** (`feedback_desk`) — the collector that receives, decrypts and stores responses, in
+  a separate repo on a host we run.
 
 ---
 
@@ -20,11 +25,11 @@ the Logos stack (which also dogfoods delivery during testnet).
 
 | Module | Where | Role |
 |---|---|---|
-| **feedback_sender** | official repo (once tested) | the two forms + publish; linkable from the shell |
-| **feedback_receiver** | separate repo / host | collect + store responses; also acts as the Store peer |
+| **feedback** | official repo (once tested) | the two forms + publish; linkable from the shell |
+| **feedback_desk** | separate repo / host we run | receive + decrypt + store responses; also the Store peer |
 
-Both wrap `delivery_module` (Waku). The receiver's node doubles as the Store peer used for backfill,
-so the receiving side owns the one always-on component.
+Both wrap `delivery_module` (Waku). The Feedback Desk's node doubles as the Store peer used for
+backfill, so the collecting side owns the one always-on component.
 
 ## Two surfaces
 
@@ -50,24 +55,24 @@ membership; the feedback app avoids that by targeting devnet.
 **The sender is a passenger, though.** `delivery_module` is one shared node per Basecamp: the first
 module to call `createNode` picks the network for everyone, and a second `createNode` fails with
 `Context already initialized`. So:
-- If feedback is the first or only delivery user, it creates the node on devnet and RLN is avoided.
-- If another app (for example chat, which defaults to `logos.test`) already owns the node, feedback
+- If Feedback is the first or only delivery user, it creates the node on devnet and RLN is avoided.
+- If another app (for example chat, which defaults to `logos.test`) already owns the node, Feedback
   adopts that cluster and may land on an RLN fleet with no membership, so it cannot send.
 
-Because standardizing every Basecamp onto one fleet is not expected near-term, the sender detects fit
-and degrades gracefully (below), and the receiver covers the union of clusters users run on.
+Because standardizing every Basecamp onto one fleet is not expected near-term, the Feedback app detects
+fit and degrades gracefully (below), and the Feedback Desk covers the union of clusters users run on.
 
-## Message payload and encryption (seal-to-receiver)
+## Message payload and encryption (seal-to-Desk)
 
-Responses are **anonymous and confidential**: each response is sealed to the receiver's public key.
-Anonymity and confidentiality are different properties. A public Waku topic is readable by anyone, so
-plaintext would broadcast the optional Contact field and make criticism publicly attributable. Sealing
-to the receiver keeps the contact field and makes it safe.
+Responses are **anonymous and confidential**: each response is sealed to the Feedback Desk's public
+key. Anonymity and confidentiality are different properties. A public Waku topic is readable by anyone,
+so plaintext would broadcast the optional Contact field and make criticism publicly attributable.
+Sealing to the Desk keeps the contact field and makes it safe.
 
-- The sender bundles the receiver's static public key and seals each response with a libsodium sealed
-  box (anonymous sender, recipient-only decryption). No sender key, no account. Only the receiver's
-  private key decrypts.
-- This composes with everything else: sealed bytes publish, store and backfill normally; the receiver
+- The Feedback app bundles the Desk's static public key and seals each response with a libsodium sealed
+  box (anonymous sender, recipient-only decryption). No sender key, no account. Only the Desk's private
+  key decrypts.
+- This composes with everything else: sealed bytes publish, store and backfill normally; the Desk
   decrypts after receiving or pulling.
 - UI copy becomes "Only the Logos team can read your response", which encourages honest contact details
   and candid feedback.
@@ -82,12 +87,31 @@ Payload (sealed), anonymous JSON:
 For v1 this is one-way (no replies) and team-only. A two-way variant (private replies to an anonymous
 submitter) is possible later with a per-submission ephemeral key, out of scope here.
 
+## Keys and decryption (no recovery phrase for anyone)
+
+The decryption key is an operator deployment key, not a wallet seed. No one types a recovery phrase.
+
+- **Senders need no key.** A sealed box encrypts to the Desk's public key using a per-message ephemeral
+  key the library generates; the sender holds nothing and stays anonymous. No seed, no account.
+- **Feedback Desk holds one static X25519 keypair.** The public key is baked into the Feedback app at
+  build time. The private key is a deployment secret on the Desk host.
+- **Decryption is automatic and headless.** The Desk opens each sealed message in-process with its
+  private key. No human tap, no phrase to type.
+- **Recovery is a key backup.** The private key is 32 bytes of config, not a mnemonic. Rebuild the host,
+  redeploy the same key, and past and future messages still decrypt. Lose it and messages sealed to it
+  cannot be read.
+- **Rotation.** Generate a new keypair and ship a Feedback app update carrying the new public key. Keep
+  the old private key until old messages are drained.
+- **Optional hardening (not v1).** Hold the private key in the Logos keystore/keycard so it never sits
+  on disk. Trade-off: decryption then needs a keycard tap, which a headless always-on Desk cannot do,
+  so v1 uses the deployment-key model.
+
 ## Transport mechanics (delivery_module)
 
 - **Shared node, adopt-or-create.** Try `createNode(devnet cfg)`; on `Context already initialized`,
   probe `getNodeInfo("Version")`; an answer means another module owns the node, so adopt it.
 - **Topics are per-app and live** (`subscribe`/`unsubscribe`, no restart). **Cluster is locked by the
-  first caller**; the sender cannot switch it without `stop()`, which tears down other apps' node.
+  first caller**; Feedback cannot switch it without `stop()`, which tears down other apps' node.
 - `send(contentTopic, payload)` is non-ephemeral (retained for Store). Outcomes arrive as events:
   `messageQueued` (RLN budget wait, not a failure), `messagePropagated`, `messageSent` (success) or
   `messageError`. Correlate by `requestId`.
@@ -96,7 +120,7 @@ submitter) is possible later with a per-submission ephemeral key, out of scope h
 
 ## Cluster-fit detection and degraded mode
 
-Because the sender adopts whatever node is live, it detects fit and degrades rather than failing or
+Because Feedback adopts whatever node is live, it detects fit and degrades rather than failing or
 asking the user to close apps.
 
 Fit signal is `rlnState()`:
@@ -116,17 +140,17 @@ non-deterministic, since first-caller-wins just re-rolls). On blocked: save the 
 calm banner ("saved, will send when messaging allows"), and a background watcher flushes the queue when
 `rlnStateChanged` reaches a sendable state.
 
-## Receiver
+## Feedback Desk
 
 - **Multi-cluster.** One delivery node per cluster in a short, curated list, covering the union of
   clusters users run on (edited as fleets change).
-- **Live path.** Subscribe to the feedback topics, receive `messageReceived` (`source: live`), decrypt,
-  append to a local store, dedup by `messageHash`.
+- **Live path.** Subscribe to the feedback topics, receive `messageReceived` (`source: live`), decrypt
+  with the Desk private key, append to a local store, dedup by `messageHash`.
 - **Backfill path (verified).** `storeQuery` pulls history for anything missed while offline. Required
   query keys: `requestId`, `includeData`, `paginationForward`; plus optional `contentTopics`,
   `timeStart`/`timeEnd`. Note: not every peer serves Store, so query a vetted store peer or run our own
-  store-enabled node (the receiver should be that node).
-- Holds the receiver private key for decryption.
+  store-enabled node (the Feedback Desk should be that node).
+- Holds the Desk private key for decryption; runs on an always-on host we operate.
 
 ## What is verified
 
@@ -140,9 +164,10 @@ Run against a live Logos devnet node (delivery_module 0.3.0), 2026-11-04:
 
 ## Open questions
 
-1. Hosting the receiver (always-on node that is the Store peer and decryptor).
+1. Hosting the Feedback Desk (always-on node that is the Store peer and decryptor).
 2. Devnet topic names for the quick form and the questionnaire.
 3. Store retention window needed on the store node.
 
-Decided: target devnet (`logos.dev`, RLN disabled, verified); seal-to-receiver encryption, team-only,
-one-way for v1; no reliance on fleet standardization (receiver covers the union).
+Decided: target devnet (`logos.dev`, RLN disabled, verified); seal-to-Desk encryption, team-only,
+one-way for v1, operator deployment key (no recovery phrase); no reliance on fleet standardization
+(Feedback Desk covers the union).
