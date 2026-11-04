@@ -16,7 +16,7 @@ Rectangle {
     // ---- config ----
     readonly property string quickTopic: "/logos-feedback/1/quick/json"
     readonly property string questTopic: "/logos-feedback/1/questionnaire/json"
-    readonly property var topics: ["app","package-manager","node","wallet","delivery","messaging","onboarding","other"]
+    readonly property var topics: ["home","app","package-manager","node","wallet","delivery","messaging","onboarding","other"]
     readonly property string appBuild: "0.1.0"
     readonly property string nodeCfg: JSON.stringify({
         logLevel:"ERROR", mode:"Core", preset:"logos.dev", relay:true, clusterId:2,
@@ -49,6 +49,24 @@ Rectangle {
             if (typeof v === "string") v = JSON.parse(v)  // host double-encodes a module's QString return
             return v
         } catch (e) { return { _raw: raw } }
+    }
+
+    // ---- deeplink: the home "Share Feedback" tile opens us via the feedback.open
+    // intent carrying {topic}; preset the Quick-report dropdown to it. ----
+    function presetTopic(t) {
+        var i = root.topics.indexOf(t)
+        if (i < 0) return
+        root.sent = false
+        root.tab = 0                 // Quick report
+        qTopic.currentIndex = i      // the ComboBox is always instantiated (visible-toggled)
+    }
+    Connections {
+        target: logos
+        function onIntentRequested(requestId, intent, params, requesterName) {
+            if (intent !== "feedback.open") return
+            if (params && params.topic) root.presetTopic(String(params.topic))
+            logos.respond(requestId, true, ({}), "")
+        }
     }
 
     // ---- delivery bring-up (adopt-or-create) ----

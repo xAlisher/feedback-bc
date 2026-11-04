@@ -11,6 +11,19 @@
     "delivery_module"
   ],
   "capabilities": [],
+  "provides": [
+    {
+      "intent": "feedback.open",
+      "params": [
+        {
+          "name": "topic",
+          "type": "string",
+          "required": false,
+          "description": "Preselect the Quick-report topic (e.g. home)"
+        }
+      ]
+    }
+  ],
   "icon": "feedback.png",
   "view": "Main.qml"
 }
