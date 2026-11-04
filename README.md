@@ -57,7 +57,7 @@ the Logos stack (which also dogfoods delivery during testnet).
 | **feedback** | official repo (once tested) | the two forms + publish; linkable from the shell |
 | **feedback_desk** | separate repo / host we run | receive + decrypt + store responses; also the Store peer |
 
-Both wrap `delivery_module` (Waku). The Feedback Desk's node doubles as the Store peer used for
+Both wrap `delivery_module` (Logos Messaging). The Feedback Desk's node doubles as the Store peer used for
 backfill, so the collecting side owns the one always-on component.
 
 ## Two surfaces
@@ -94,7 +94,7 @@ fit and degrades gracefully (below), and the Feedback Desk covers the union of c
 ## Message payload and encryption (seal-to-Desk)
 
 Responses are **anonymous and confidential**: each response is sealed to the Feedback Desk's public
-key. Anonymity and confidentiality are different properties. A public Waku topic is readable by anyone,
+key. Anonymity and confidentiality are different properties. A public Logos Messaging topic is readable by anyone,
 so plaintext would broadcast the optional Contact field and make criticism publicly attributable.
 Sealing to the Desk keeps the contact field and makes it safe.
 
@@ -113,12 +113,12 @@ Payload (sealed), anonymous JSON:
   "message"|"answers":{...}, "contact"?, "build":"<auto>", "ts":<unix ms> }
 ```
 
-**Size limits** (Waku message size, the sealed box, Discord's 2000-char post, and abuse control):
+**Size limits** (Logos Messaging message size, the sealed box, Discord's 2000-char post, and abuse control):
 title 120, message 2000, contact 200, each questionnaire answer 1000, at most 10 answers, and a hard
 cap of 8192 bytes on the whole decrypted payload. The Feedback app enforces them in the UI and before
 sealing; the Feedback Desk re-checks on decrypt (a sender could bypass the UI) and skips anything over.
 
-**Wire format:** the Feedback app sends `base64(sealed-ciphertext)` as the Waku payload (keeps it
+**Wire format:** the Feedback app sends `base64(sealed-ciphertext)` as the Logos Messaging payload (keeps it
 text-safe); delivery base64-wraps the payload again inside events, so the Desk base64-decodes twice
 then opens the sealed box. Verified end-to-end: `desk.py` brought up a devnet node, backfilled a sealed
 message via `storeQuery`, decrypted and stored it, and deduped a re-run.
