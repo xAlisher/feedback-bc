@@ -1,11 +1,12 @@
-# Basecamp Feedback App — design spec
+# Basecamp Feedback App
 
 A native in-Basecamp feedback app for the testnet phase: a quick feedback form reachable from the
-Basecamp shell, plus a short questionnaire, both built on the Logos delivery module. This is a draft
-for discussion, not a final design.
+Basecamp shell, plus a short questionnaire, both built on the Logos delivery module. It is **built,
+published, and dogfoodable today** (see *Status* below); this document carries both the design rationale
+and the current state, and is open to feedback on the approach.
 
-Status: draft v0.3 (2026-11-04). Stack claims are grounded in the public `delivery_module` v0.3.0
-contract and in live send and Store round-trips run against a Logos devnet node on 2026-11-04.
+Status: built and published (2026-11-04). Stack claims are grounded in the public `delivery_module`
+v0.3.0 contract and in live send and Store round-trips run against a Logos devnet node on 2026-11-04.
 
 Two apps:
 - **Feedback** (`feedback`) — the user-facing app (the two forms), in the official repo.
