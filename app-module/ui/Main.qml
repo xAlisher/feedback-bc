@@ -176,7 +176,7 @@ Rectangle {
                 Layout.fillWidth: true; visible: !root.sent
                 currentIndex: root.tab
                 onCurrentIndexChanged: root.tab = currentIndex
-                LogosTabButton { text: "Quick" }
+                LogosTabButton { text: "Quick report" }
                 LogosTabButton { text: "Questionnaire" }
             }
 
