@@ -46,7 +46,6 @@
             installPhase = ''
               mkdir -p $out/lib
               cp core/feedback_core_plugin.so $out/lib/
-              cp ${./core/manifest.json} $out/lib/manifest.json
               cp ${./metadata.json} $out/lib/metadata.json
             '';
           };
@@ -62,7 +61,6 @@
               mkdir -p $out/lib
               cp Main.qml $out/lib/
               cp metadata.json $out/lib/
-              cp manifest.json $out/lib/
               cp feedback.png $out/lib/
             '';
           };

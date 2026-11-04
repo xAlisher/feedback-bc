@@ -92,10 +92,18 @@ def _open_payload(priv: str, payload_b64: str) -> dict:
     base64(ciphertext) (text-safe wire / CLI). The live and store paths differ by one base64 layer,
     so try opening at both depths and use whichever decrypts; a wrong depth simply fails to open.
     """
-    raw = base64.b64decode(payload_b64)
-    candidates = [raw]
+    def _b64(b):
+        if isinstance(b, str):
+            b = b.encode()
+        return base64.b64decode(b + b"=" * (-len(b) % 4))  # tolerate missing padding
+    candidates = []
     try:
-        candidates.append(base64.b64decode(raw, validate=True))
+        raw = _b64(payload_b64)      # undo the delivery event/store base64 wrapper
+        candidates.append(raw)
+        try:
+            candidates.append(_b64(raw))  # wire = base64(ciphertext): one more layer
+        except Exception:
+            pass
     except Exception:
         pass
     last: Exception = fc.FeedbackError("no decodable ciphertext")

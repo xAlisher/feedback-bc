@@ -7,6 +7,7 @@ import QtQuick.Layouts 1.15
 
 Rectangle {
     id: root
+    objectName: "feedbackRoot"
     width: 420; height: 720
     color: "#16181d"
     property color fg: "#e7e9ee"
@@ -35,7 +36,11 @@ Rectangle {
     function callMod(mod, method, params) {
         var raw = logos.callModule(mod, method, params || [])
         if (!raw || raw === "") return null
-        try { return JSON.parse(raw) } catch (e) { return { _raw: raw } }
+        try {
+            var v = JSON.parse(raw)
+            if (typeof v === "string") v = JSON.parse(v)  // host double-encodes a module's QString return
+            return v
+        } catch (e) { return { _raw: raw } }
     }
 
     // ---- delivery bring-up (adopt-or-create) ----
