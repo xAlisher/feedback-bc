@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "type": "ui_qml",
   "author": "xAlisher",
-  "description": "Send feedback on Basecamp — sealed to the Feedback Desk over devnet.",
+  "description": "Send feedback on Basecamp \u2014 sealed to the Feedback Desk over devnet.",
   "category": "messaging",
-  "dependencies": ["feedback_core", "delivery_module"],
-  "icon": "",
-  "main": { "linux-amd64": "Main.qml" },
-  "manifestVersion": "0.1.0"
+  "dependencies": [
+    "feedback_core",
+    "delivery_module"
+  ],
+  "icon": "feedback.png",
+  "main": {},
+  "manifestVersion": "0.2.0",
+  "view": "Main.qml"
 }

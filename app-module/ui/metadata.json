@@ -6,8 +6,11 @@
   "author": "xAlisher",
   "description": "Send feedback on Basecamp (quick form + questionnaire), sealed to the Feedback Desk over devnet.",
   "category": "messaging",
-  "dependencies": ["feedback_core", "delivery_module"],
-  "main": "Main.qml",
+  "dependencies": [
+    "feedback_core",
+    "delivery_module"
+  ],
   "capabilities": [],
-  "icon": ""
+  "icon": "feedback.png",
+  "view": "Main.qml"
 }

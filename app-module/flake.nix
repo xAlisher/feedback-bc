@@ -63,6 +63,7 @@
               cp Main.qml $out/lib/
               cp metadata.json $out/lib/
               cp manifest.json $out/lib/
+              cp feedback.png $out/lib/
             '';
           };
 
