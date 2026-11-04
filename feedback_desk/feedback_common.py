@@ -24,7 +24,7 @@ LIMITS = {
     "max_answers": 10,
     "payload_max_bytes": 8192,   # hard cap on the decrypted JSON
 }
-TOPICS = ["app", "package-manager", "node", "wallet", "delivery", "messaging", "onboarding", "other"]
+TOPICS = ["home", "app", "package-manager", "node", "wallet", "delivery", "messaging", "onboarding", "other"]
 
 
 class FeedbackError(ValueError):
