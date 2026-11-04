@@ -19,7 +19,7 @@
         logosHeaders = logos-liblogos.packages.${system}.default;
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pkgs.cmake pkgs.ninja pkgs.pkg-config pkgs.qt6.qtbase pkgs.libsodium ];
+          buildInputs = [ pkgs.cmake pkgs.ninja pkgs.pkg-config pkgs.qt6.qtbase pkgs.qt6.qtremoteobjects pkgs.libsodium ];
           shellHook = ''
             export LOGOS_CPP_SDK_ROOT="${logosSdk}"
             export LOGOS_LIBLOGOS_HEADERS="${logosHeaders}/include"
@@ -33,7 +33,7 @@
             version = "0.1.0";
             src = ./.;
             nativeBuildInputs = [ pkgs.cmake pkgs.ninja pkgs.pkg-config ];
-            buildInputs = [ pkgs.qt6.qtbase pkgs.libsodium ];
+            buildInputs = [ pkgs.qt6.qtbase pkgs.qt6.qtremoteobjects pkgs.libsodium ];
             cmakeFlags = [ "-GNinja" "-DCMAKE_BUILD_TYPE=Release" ];
             dontWrapQtApps = true;
             preConfigure = ''
@@ -45,7 +45,10 @@
             '';
             installPhase = ''
               mkdir -p $out/lib
-              cp core/feedback_core_plugin.so $out/lib/
+              # CMake MODULE output is .so on both Linux and macOS, but the lgx
+              # bundler + host expect the platform's shared-lib extension
+              # (.dylib on darwin). Install under that name.
+              cp core/feedback_core_plugin.so "$out/lib/feedback_core_plugin${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}"
               cp ${./metadata.json} $out/lib/metadata.json
             '';
           };

@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 # --- Dependencies ---
 
 # Qt6 Core (required for all Basecamp modules)
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core RemoteObjects)
 
 # libsodium (optional — remove if you don't need crypto)
 find_package(PkgConfig REQUIRED)

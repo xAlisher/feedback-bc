@@ -42,6 +42,7 @@ target_include_directories(feedback_core_plugin PRIVATE
 
 target_link_libraries(feedback_core_plugin PRIVATE
     Qt6::Core
+    Qt6::RemoteObjects   # liblogos_sdk.a uses QRemoteObject* for IPC; the darwin linker needs it explicit
     "${LOGOS_CPP_SDK}/lib/liblogos_sdk.a"
 )
 
