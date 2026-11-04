@@ -56,8 +56,15 @@ Two viable paths were investigated; both de-risked:
 **Option B — native core** (templated on `receiver-basecamp`): C++ + libsodium `crypto_box_seal` (proper
 CSPRNG) for the seal, delivery from C++ or QML, QML UI. Correct crypto, but a real nix/CMake/.rep build.
 
-**Decision:** prefer **A if the V4 CSPRNG probe passes** (vastly simpler, nothing to compile); fall back
-to **B** otherwise (crypto correctness over simplicity — the payload carries contact PII).
+**Decision — RESOLVED (headless probe, 2026-11-04): Option B.** Ran a QML probe on a headless sway
+(Qt 6.9.2): **`crypto` is undefined in the V4 JS engine** (`crypto is not defined`), so there is no
+WebCrypto CSPRNG. A pure-JS sealed box would fall back to `Math.random` for the ephemeral key, which
+weakens confidentiality — not acceptable for a payload carrying contact PII. So the seal goes native.
+
+**Scope of the native core is minimal:** delivery stays in QML (`logos.callModule`, proven); only one
+function needs C++/libsodium — `seal(pubHex, payloadJson) -> base64(crypto_box_seal)` (which brings
+libsodium's CSPRNG). Templated on `receiver-basecamp`'s libsodium + `mkLogosQmlModule` build. The JS
+seal interop stays useful as the cross-check oracle (tweetnacl ↔ libsodium are byte-identical).
 
 ## Build (remaining)
 
