@@ -102,7 +102,11 @@ def to_discord(cfg: dict, record: dict) -> None:
     msg = f"{head}\n{body}\n_build {p.get('build','?')}" + (f" · contact: {contact}" if contact else "") + "_"
     msg = msg[:1990]  # Discord 2000-char cap
     data = json.dumps({"content": msg}).encode()
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    # Discord 403s the default python-urllib User-Agent; set an explicit one.
+    req = urllib.request.Request(url, data=data, headers={
+        "Content-Type": "application/json",
+        "User-Agent": "FeedbackDesk/1.0 (+https://github.com/xAlisher/feedback-bc)",
+    })
     try:
         urllib.request.urlopen(req, timeout=10)
     except Exception as e:  # a failed post must not drop the (already-stored) feedback
