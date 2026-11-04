@@ -4,6 +4,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.LocalStorage 2.15
 
 Rectangle {
     id: root
@@ -62,17 +63,65 @@ Rectangle {
             }
         }
     }
-    Component.onCompleted: bringUp()
+    Component.onCompleted: { bringUp(); loadQueue() }
+
+    // ---- degraded-mode queue (local, persisted) + auto-retry ----
+    property var pending: []
+    property int pendingCount: 0
+
+    function _db() {
+        try { return LocalStorage.openDatabaseSync("feedback_ui_queue", "1.0", "feedback drafts", 200000) }
+        catch (e) { return null }  // sandbox/no-storage: fall back to in-memory only
+    }
+    function loadQueue() {
+        var db = _db(); if (!db) return
+        try { db.transaction(function(tx) {
+            tx.executeSql("CREATE TABLE IF NOT EXISTS q(payload TEXT)")
+            var rs = tx.executeSql("SELECT payload FROM q")
+            var arr = []
+            for (var i = 0; i < rs.rows.length; i++) { try { arr.push(JSON.parse(rs.rows.item(i).payload)) } catch (e) {} }
+            root.pending = arr; root.pendingCount = arr.length
+        }) } catch (e) {}
+    }
+    function saveQueue() {
+        var db = _db(); if (!db) return
+        try { db.transaction(function(tx) {
+            tx.executeSql("CREATE TABLE IF NOT EXISTS q(payload TEXT)")
+            tx.executeSql("DELETE FROM q")
+            for (var i = 0; i < root.pending.length; i++) tx.executeSql("INSERT INTO q VALUES(?)", [JSON.stringify(root.pending[i])])
+        }) } catch (e) {}
+    }
+
+    // Try to seal + send one payload right now. Returns true only on a confirmed send.
+    function trySend(payload) {
+        if (root.connState !== "ready") return false
+        var sealed = callMod("feedback_core", "seal", [JSON.stringify(payload)])
+        if (!sealed || !sealed.ok) return false
+        var topic = payload.kind === "questionnaire" ? root.questTopic : root.quickTopic
+        var r = callMod("delivery_module", "send", [topic, sealed.ciphertext_b64])
+        return !!(r && (r.value || r.result) && !(r.error))
+    }
 
     function submit(payload) {
-        var topic = payload.kind === "questionnaire" ? root.questTopic : root.quickTopic
         payload.v = 1; payload.ts = Date.now(); payload.build = root.appBuild
-        var sealed = callMod("feedback_core", "seal", [JSON.stringify(payload)])
-        if (!sealed || !sealed.ok) { root.note = "seal failed: " + (sealed ? sealed.error : "no core"); return }
-        var r = callMod("delivery_module", "send", [topic, sealed.ciphertext_b64])
-        if (r && (r.value || r.result)) { root.sent = true; root.note = "" }
-        else { root.note = "send pending — will retry"; root.sent = true }  // degraded: optimistic
+        if (root.trySend(payload)) { root.sent = true; root.note = "" }
+        else {
+            // can't send now: queue it, persist, and let the retry Timer flush it
+            root.pending.push(payload); root.pendingCount = root.pending.length; root.saveQueue()
+            root.sent = true
+            root.note = "Saved — will send when messaging is ready (" + root.pendingCount + " queued)."
+        }
     }
+
+    function flushQueue() {
+        if (root.pending.length === 0 || root.connState !== "ready") return
+        var still = []
+        for (var i = 0; i < root.pending.length; i++) {
+            if (!root.trySend(root.pending[i])) still.push(root.pending[i])
+        }
+        if (still.length !== root.pending.length) { root.pending = still; root.pendingCount = still.length; root.saveQueue() }
+    }
+    Timer { interval: 4000; running: true; repeat: true; onTriggered: root.flushQueue() }
 
     // ---- UI ----
     ColumnLayout {
@@ -86,6 +135,18 @@ Rectangle {
                 color: root.connState === "ready" ? "#3fb96a" : "#c9a227"
             }
             Label { text: root.connState; color: root.sub; font.pixelSize: 12 }
+        }
+
+        // degraded-mode banner — drafts saved locally, flushed when messaging is ready
+        Rectangle {
+            Layout.fillWidth: true; radius: 6; color: "#2a2410"
+            Layout.preferredHeight: queuedLabel.implicitHeight + 16
+            visible: root.pendingCount > 0
+            Label {
+                id: queuedLabel; anchors.fill: parent; anchors.margins: 8
+                wrapMode: Text.WordWrap; color: "#e3c24d"; font.pixelSize: 12
+                text: "⏳ " + root.pendingCount + " saved — will send when messaging is ready."
+            }
         }
 
         // tab switch
