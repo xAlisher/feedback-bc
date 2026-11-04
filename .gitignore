@@ -1,0 +1,7 @@
+# Desk secrets and runtime state — never commit
+feedback_desk/secret.key
+feedback_desk/config.json
+feedback_desk/*.jsonl
+feedback_desk/seen.txt
+__pycache__/
+*.pyc

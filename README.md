@@ -84,6 +84,14 @@ Payload (sealed), anonymous JSON:
   "message"|"answers":{...}, "contact"?, "build":"<auto>", "ts":<unix ms> }
 ```
 
+**Size limits** (Waku message size, the sealed box, Discord's 2000-char post, and abuse control):
+title 120, message 2000, contact 200, each questionnaire answer 1000, at most 10 answers, and a hard
+cap of 8192 bytes on the whole decrypted payload. The Feedback app enforces them in the UI and before
+sealing; the Feedback Desk re-checks on decrypt (a sender could bypass the UI) and skips anything over.
+
+**Wire format:** the Waku payload is the raw sealed-box ciphertext. Delivery hands it to the Desk
+base64-wrapped inside events, so the Desk base64-decodes once, then opens the sealed box.
+
 For v1 this is one-way (no replies) and team-only. A two-way variant (private replies to an anonymous
 submitter) is possible later with a per-submission ephemeral key, out of scope here.
 
@@ -176,6 +184,20 @@ Run against a live Logos devnet node (delivery_module 0.3.0), 2026-11-04:
   with no `messageQueued` or `messageError` and no RLN budget activity. No membership needed.
 - **Store backfill.** Three messages sent, then `storeQuery` returned all three (statusCode 200,
   `ephemeral:false`). One queried peer served Store; another failed to dial, hence the vetted-peer note.
+- **Full sealed loop.** A feedback payload sealed to the Desk public key, sent over devnet, retrieved
+  via `storeQuery`, and decrypted with the Desk private key recovered the exact original payload, with
+  the size limits enforced on open. The whole pipeline (seal, send, store, decrypt, validate) works.
+
+## Implementation
+
+- `feedback_desk/feedback_common.py` — shared contract: payload schema, size limits, and the
+  seal/open crypto (libsodium sealed box). The Feedback app reimplements `seal` in C with the same
+  primitive.
+- `feedback_desk/desk.py` — the Desk service: drives delivery via logosctl, receives on the topics,
+  decrypts, enforces limits, stores with dedup, backfills via `storeQuery`, bridges to a Discord
+  webhook.
+- `tools/gen_keys.py` — generates the Desk keypair (public key for the app, private key a host secret).
+- Secrets (private key, webhook URL) are gitignored and live only on the Desk host.
 
 ## Open questions
 
