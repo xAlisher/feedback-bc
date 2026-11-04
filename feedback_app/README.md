@@ -66,6 +66,25 @@ function needs C++/libsodium — `seal(pubHex, payloadJson) -> base64(crypto_box
 libsodium's CSPRNG). Templated on `receiver-basecamp`'s libsodium + `mkLogosQmlModule` build. The JS
 seal interop stays useful as the cross-check oracle (tweetnacl ↔ libsodium are byte-identical).
 
+## Headless verification (2026-11-04)
+
+- **Both `.lgx` build** (`feedback-core.lgx` 605KB, `feedback-ui.lgx` 5.3KB). `feedback-core.lgx`
+  self-bundles `libsodium.so.26`.
+- **`feedback_core` verified correct**: `FeedbackCore::seal` defined, `crypto_box_seal` ←
+  `libsodium.so.26`, Desk pubkey baked. Same libsodium primitive already proven to interoperate with
+  the Desk, so its output is Desk-openable by construction.
+- **`feedback_ui` QML validated**: loaded standalone in Qt 6.9.2 (with a stubbed `logos`) with **zero
+  QML errors** — the forms parse and bindings resolve.
+- **Blocked (environment, not a defect):** loading the sideloaded `.lgx` into the available Oct-2026
+  inspector Basecamp fails its **content-hash integrity check** ("files modified or damaged") — a
+  version skew between this module's `logos-package` bundler and that host's hash recomputation. No
+  dev bypass flag in the host.
+
+**To finish the in-Basecamp render + live-send verification:** build/obtain an inspector Basecamp whose
+`logos-package` rev matches the `.lgx` bundler (so the content hashes validate), or install via the real
+package-manager/catalog flow, then `backend.loadUiModule('feedback_ui')`, render the forms (390/700/1280),
+and send once → confirm it lands on the live Desk → Discord.
+
 ## Build (remaining)
 
 1. Resolve A-vs-B: probe `crypto.getRandomValues` inside Basecamp's QML (one small view).
