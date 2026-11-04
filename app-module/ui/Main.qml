@@ -18,6 +18,7 @@ Rectangle {
     readonly property string quickTopic: "/logos-feedback/1/quick/json"
     readonly property string questTopic: "/logos-feedback/1/questionnaire/json"
     readonly property var topics: ["app","package-manager","node","wallet","delivery","messaging","onboarding","other"]
+    readonly property string appBuild: "0.1.0"   // auto-filled into every response (ties feedback to a build)
     readonly property string nodeCfg: JSON.stringify({
         logLevel:"ERROR", mode:"Core", preset:"logos.dev", relay:true, clusterId:2,
         tcpPort:0, discv5UdpPort:0,
@@ -65,7 +66,7 @@ Rectangle {
 
     function submit(payload) {
         var topic = payload.kind === "questionnaire" ? root.questTopic : root.quickTopic
-        payload.v = 1; payload.ts = Date.now()
+        payload.v = 1; payload.ts = Date.now(); payload.build = root.appBuild
         var sealed = callMod("feedback_core", "seal", [JSON.stringify(payload)])
         if (!sealed || !sealed.ok) { root.note = "seal failed: " + (sealed ? sealed.error : "no core"); return }
         var r = callMod("delivery_module", "send", [topic, sealed.ciphertext_b64])
@@ -152,7 +153,7 @@ Rectangle {
             visible: root.sent
             Label { text: "Thanks — your feedback was sent."; color: root.fg; font.pixelSize: 18 }
             Label { text: root.note; color: root.sub; font.pixelSize: 12; visible: root.note.length > 0 }
-            Button { text: "Send another"; onClicked: { qTitle.text=""; qMsg.text=""; qContact.text=""; root.qRating=0; root.sent=false } }
+            Button { text: "Send another"; onClicked: { qTitle.text=""; qMsg.text=""; qContact.text=""; root.qRating=0; a2.answer=""; a3.answer=""; a4.answer=""; root.note=""; root.sent=false } }
         }
 
         Item { Layout.fillHeight: true }
@@ -161,10 +162,11 @@ Rectangle {
 
     property int qRating: 0
     component QQ: ColumnLayout {
+        id: qq
         property alias answer: ta.text
         property string prompt
         Layout.fillWidth: true; spacing: 4
-        Label { text: parent.prompt; color: root.fg; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+        Label { text: qq.prompt; color: root.fg; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         TextArea { id: ta; Layout.fillWidth: true; Layout.minimumHeight: 70
                    onTextChanged: if (text.length > 1000) text = text.slice(0,1000) }
     }
