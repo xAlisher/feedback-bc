@@ -2,14 +2,31 @@
   "logosctl": "/home/sher/rln-probe/logosctl/logosctl-x86_64.AppImage",
   "session_dir": "/home/sher/rln-probe/session",
   "node_config": {
-    "logLevel": "ERROR", "mode": "Core", "preset": "logos.dev", "relay": true,
-    "clusterId": 2, "tcpPort": 0, "discv5UdpPort": 0,
+    "logLevel": "ERROR",
+    "mode": "Core",
+    "relay": true,
+    "tcpPort": 0,
+    "discv5UdpPort": 0,
+    "preset": "",
+    "clusterId": 2,
+    "numShardsInNetwork": 8,
+    "maxMessageSize": "150KiB",
+    "discv5Discovery": true,
+    "enableKadDiscovery": true,
+    "reliabilityEnabled": true,
     "entryNodes": [
       "/dns4/node-01.do-ams3.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmQ9X2xDfPG3uL77V9piYDhjq14JhKCtcmNYsTMKNqrKCj",
-      "/dns4/node-02.gc-us-central1-a.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmUuXhUW9bdJpzN1kfDziFiUZo4bszTk66cvr7uuyCHXR7"
+      "/dns4/node-02.do-ams3.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmB8NYprrfQrgWVzsJtYWkfjsXbmJEGNMG6othXsQ53BwG",
+      "/dns4/node-01.gc-us-central1-a.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmF8WtwGPmeGHgYAX2277jHgy5cW9F7zsB8EqUjBZQAZQ3",
+      "/dns4/node-02.gc-us-central1-a.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmUuXhUW9bdJpzN1kfDziFiUZo4bszTk66cvr7uuyCHXR7",
+      "/dns4/node-01.ac-cn-hongkong-c.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmL3oU95jh1BZHozn3uNhx8HEneirgr8M1jEAapzXGDqRF",
+      "/dns4/node-02.ac-cn-hongkong-c.logos.test.status.im/tcp/30303/p2p/16Uiu2HAm28CoBZjpyxsanC8tQpbvZ7bZJnVYuB1EgFzb571qpWsV"
     ]
   },
-  "topics": ["/logos-feedback/1/quick/json", "/logos-feedback/1/questionnaire/json"],
+  "topics": [
+    "/logos-feedback/1/quick/json",
+    "/logos-feedback/1/questionnaire/json"
+  ],
   "store_peer": "/dns4/node-02.gc-us-central1-a.logos.test.status.im/tcp/30303/p2p/16Uiu2HAmUuXhUW9bdJpzN1kfDziFiUZo4bszTk66cvr7uuyCHXR7",
   "private_key_file": "secret.key",
   "store_file": "feedback.jsonl",

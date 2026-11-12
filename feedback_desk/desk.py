@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Feedback Desk — collector service (issues #10-#14).
 
-Drives delivery_module via logosctl, receives sealed feedback on the devnet topics,
+Drives delivery_module via logosctl, receives sealed feedback on the testnet topics,
 decrypts with the Desk private key, enforces size limits, stores locally with dedup,
 backfills via storeQuery on startup, and bridges each response to a private Discord
 channel webhook.
 
 Wire format (production): the Waku payload is the raw sealed-box ciphertext; delivery
 hands it to us base64-wrapped in events, so we base64-decode once then open_sealed().
+
+A watchdog checks the delivery daemon every minute and exits the Desk when it is gone or stays
+disconnected, so systemd (Restart=always) brings everything back and backfill recovers what was
+missed (#20). A heartbeat line every 10 minutes tells a quiet Desk from a dead one.
 
 Run: python3 desk.py config.json   (see config.example.json)
 Secrets (private key file, webhook URL) come from config/host, never the repo.
@@ -18,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 
@@ -38,7 +43,7 @@ def lc(cfg: dict, *args: str, timeout: int = 40) -> str:
 
 
 def ensure_node(cfg: dict) -> None:
-    """Bring up the daemon + a devnet delivery node (adopt-or-create), wait until Connected.
+    """Bring up the daemon + a testnet delivery node (adopt-or-create), wait until Connected.
 
     Readiness is confirmed by a successful `module load` (retried), not by the `status`
     subcommand, which can hang right after a daemon restart.
@@ -178,9 +183,60 @@ def backfill(cfg: dict, store: Store) -> None:
                    msg.get("payload", ""), "history")
 
 
+def connection_status(cfg: dict) -> str:
+    """delivery_module's connection status, or "" when the daemon or module doesn't answer."""
+    try:
+        out = lc(cfg, "call", "delivery_module", "getConnectionStatus", timeout=20)
+    except subprocess.TimeoutExpired:
+        return ""
+    if "NO_DAEMON" in out:
+        return ""
+    try:
+        res = json.loads(out)["result"]
+        return str(res.get("value") or "") if res.get("success") else ""
+    except Exception:
+        return ""
+
+
+def watchdog(cfg: dict, proc: subprocess.Popen, state: dict) -> None:
+    """Kill the watch stream when the node is gone, so watch_live returns and the Desk exits (#20).
+
+    The 2026-11-06 failure: the daemon died, `logosctl watch` hung instead of exiting, and the
+    Desk sat deaf for five days. A dead daemon or module must end the process, not stall it.
+    """
+    every = int(cfg.get("watchdog_interval_s", 60))
+    max_fail = int(cfg.get("watchdog_max_failures", 3))            # no answer: ~3 min
+    max_disc = int(cfg.get("watchdog_max_disconnected", 15))       # answering but peerless: ~15 min
+    beat_every = int(cfg.get("heartbeat_interval_s", 600))
+    fails = disc = 0
+    last_beat = time.time()
+    while proc.poll() is None:
+        time.sleep(every)
+        status = connection_status(cfg)
+        fails = 0 if status else fails + 1
+        disc = disc + 1 if status == "Disconnected" else 0
+        reason = ""
+        if fails >= max_fail:
+            reason = f"delivery not answering for {fails} checks"
+        elif disc >= max_disc:
+            reason = f"node Disconnected for {disc} checks"
+        if reason:
+            state["reason"] = reason
+            print(f"[desk] watchdog: {reason}; exiting so systemd restarts the Desk", flush=True)
+            proc.kill()
+            return
+        if time.time() - last_beat >= beat_every:
+            last = state.get("last_msg")
+            age = f"{int((time.time() - last) / 60)} min ago" if last else "none since start"
+            print(f"[desk] heartbeat: delivery {status or 'no answer'}, last message {age}", flush=True)
+            last_beat = time.time()
+
+
 def watch_live(cfg: dict, store: Store) -> None:
     proc = subprocess.Popen([cfg["logosctl"], "--config-dir", cfg["session_dir"],
                              "watch", "delivery_module"], stdout=subprocess.PIPE, text=True)
+    state: dict = {}
+    threading.Thread(target=watchdog, args=(cfg, proc, state), daemon=True).start()
     topics = set(cfg["topics"])
     for line in proc.stdout:
         line = line.strip()
@@ -195,13 +251,17 @@ def watch_live(cfg: dict, store: Store) -> None:
             continue
         payload = ev.get("arg2", {})
         pb64 = payload.get("_bytes") if isinstance(payload, dict) else None
+        state["last_msg"] = time.time()
         handle(cfg, store, ev.get("arg0", ""), topic, pb64 or "", "live")
+    # The stream ended (the watchdog killed it, or logosctl exited): never keep running deaf.
+    print(f"[desk] watch stream ended ({state.get('reason', 'logosctl watch exited')}); exiting", flush=True)
+    sys.exit(1)
 
 
 def main() -> None:
     cfg = load_config(sys.argv[1] if len(sys.argv) > 1 else "config.json")
     store = Store(cfg["store_file"], cfg["seen_file"])
-    print("[desk] bringing up devnet node…")
+    print("[desk] bringing up testnet node…", flush=True)
     ensure_node(cfg)
     for topic in cfg["topics"]:
         lc(cfg, "call", "delivery_module", "subscribe", topic)
