@@ -134,8 +134,13 @@ def to_discord(cfg: dict, record: dict) -> None:
     else:
         head = f"**Feedback — {p.get('topic','?')}**: {p.get('title','') or '(no title)'}"
         body = str(p.get("message", ""))[:1500]
-    contact = p.get("contact")
-    msg = f"{head}\n{body}\n_build {p.get('build','?')}" + (f" · contact: {contact}" if contact else "") + "_"
+    # Opt-in flag for the team: all feedback lands in this same private channel either way; this only
+    # records whether the person is OK with us discussing it in a public channel. No contact field.
+    share = "allowed" if p.get("public_share") else "not allowed"
+    ref = p.get("ref")
+    flags = f"Public sharing: {share}" + (f" · Ref {ref}" if ref else "")
+    ctx = f"app {p.get('build','?')}"   # feedback app version; the user types any OS/Basecamp/module versions in the message
+    msg = f"{head}\n{body}\n\n{flags}\n_{ctx}_"
     msg = msg[:1990]  # Discord 2000-char cap
     data = json.dumps({"content": msg}).encode()
     # Discord 403s the default python-urllib User-Agent; set an explicit one.
