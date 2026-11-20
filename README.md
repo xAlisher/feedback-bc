@@ -64,7 +64,8 @@ backfill, so the collecting side owns the one always-on component.
 ## Two surfaces
 
 **A. Quick feedback form** — linked from the Basecamp shell, reachable from anywhere.
-Fields: Title, Topic (dropdown), Message, Contact (optional), Send, then a confirmation.
+Fields: Title, Topic (dropdown), Message, an opt-in public-sharing checkbox, Send, then a
+confirmation. **No contact field** (see *Privacy and anti-scam* below).
 
 **B. Questionnaire** — inside the Feedback app. Test version, four questions:
 1. How would you rate Basecamp so far? (1 = poor to 5 = great)
@@ -72,8 +73,29 @@ Fields: Title, Topic (dropdown), Message, Contact (optional), Send, then a confi
 3. Which modules or apps are you most excited about?
 4. One thing you would improve right now?
 
-Questions change with app updates, not remotely, to keep it simple. Both forms auto-fill an invisible
-`build` field (app/module version) so every response is tied to a specific release.
+Questions change with app updates, not remotely, to keep it simple. No environment is auto-attached:
+the privacy note asks the user to include their OS / Basecamp / app / module versions in the message
+when they're reporting a bug. The only field the app adds is its own version. Never collected:
+hostname, username, IP, node ID, keys, addresses or file paths.
+
+## Privacy and anti-scam (2026-11-20)
+
+Contact collection was removed end to end (feedback-app#… / feedback-bc#21). Asking for a contact made
+anyone who mentioned their feedback a target for a fake "support desk" scam. In its place, both forms
+and the confirmation screen carry:
+
+- a privacy + anti-scam note: *"Your feedback goes to our private Discord channel, visible to the Logos
+  team. If you're reporting a bug, include your OS, Basecamp and app/module versions. Please don't
+  include any personal data. We'll never DM you about your feedback."*
+- an opt-in checkbox, **unchecked by default**: *"I'm OK if this feedback is discussed in a public
+  channel."* It is only a flag for the team — every response still lands in the same private Discord
+  channel either way, and nothing is sent anywhere else automatically. The Desk shows the flag in the
+  channel message (`Public sharing: allowed` / `not allowed`).
+- the anti-scam line *"We'll never DM you about your feedback."* — part of the note above on the forms,
+  and repeated on the confirmation screen (where it adds that the team never asks for the reference code).
+- a short random **reference code** (e.g. `FB-7K3Q`) on the confirmation and in the channel message, so
+  the team can quote it when reposting and the user recognises their own feedback. It is random only —
+  never derived from any user, device or node identifier — and the team never asks anyone for it.
 
 ## Fleet and RLN: devnet, and the passenger reality
 
@@ -96,28 +118,32 @@ fit and degrades gracefully (below), and the Feedback Desk covers the union of c
 
 Responses are **anonymous and confidential**: each response is sealed to the Feedback Desk's public
 key. Anonymity and confidentiality are different properties. A public Logos Messaging topic is readable by anyone,
-so plaintext would broadcast the optional Contact field and make criticism publicly attributable.
-Sealing to the Desk keeps the contact field and makes it safe.
+so plaintext would make criticism publicly attributable. Sealing to the Desk keeps every response
+readable only by the team, so people can be candid.
 
 - The Feedback app bundles the Desk's static public key and seals each response with a libsodium sealed
   box (anonymous sender, recipient-only decryption). No sender key, no account. Only the Desk's private
   key decrypts.
 - This composes with everything else: sealed bytes publish, store and backfill normally; the Desk
   decrypts after receiving or pulling.
-- UI copy becomes "Only the Logos team can read your response", which encourages honest contact details
-  and candid feedback.
+- The UI's privacy note ("Your feedback goes to our private Discord channel. Please don't include any
+  personal data.") sets the expectation; sealing keeps the response team-only so feedback stays candid.
 
 Payload (sealed), anonymous JSON:
 
 ```
 { "v":1, "kind":"quick|questionnaire", "title"?, "topic"?,
-  "message"|"answers":{...}, "contact"?, "build":"<auto>", "ts":<unix ms> }
+  "message"|"answers":{...}, "public_share"?:bool, "ref"?:"FB-XXXX",
+  "build":"<app version>", "ts":<unix ms> }
 ```
 
+No `contact` field: the Desk rejects any payload that still carries one.
+
 **Size limits** (Logos Messaging message size, the sealed box, Discord's 2000-char post, and abuse control):
-title 120, message 2000, contact 200, each questionnaire answer 1000, at most 10 answers, and a hard
-cap of 8192 bytes on the whole decrypted payload. The Feedback app enforces them in the UI and before
-sealing; the Feedback Desk re-checks on decrypt (a sender could bypass the UI) and skips anything over.
+title 120, message 2000, each questionnaire answer 1000, at most 10 answers, reference code 16, each
+context string 64, and a hard cap of 8192 bytes on the whole decrypted payload. The Feedback app
+enforces them in the UI and before sealing; the Feedback Desk re-checks on decrypt (a sender could
+bypass the UI) and skips anything over.
 
 **Wire format:** the Feedback app sends `base64(sealed-ciphertext)` as the Logos Messaging payload (keeps it
 text-safe); delivery base64-wraps the payload again inside events, so the Desk base64-decodes twice
@@ -154,9 +180,10 @@ reads. "We both receive" means both are in that channel; it scales to the team f
 
 - **Secrets on the Desk host** (never in any repo): the Desk private key + the Discord webhook URL.
 - **Dedup by `messageHash`** so Store backfill on restart does not re-post old feedback into the channel.
-- **Privacy boundary:** confidentiality now rests on that channel being locked down, and the optional
-  Contact field (PII) lands in Discord, a centralized service. Acceptable as a testnet interim; a
-  dashboard or a Logos-native destination can replace the bridge later.
+- **Privacy boundary:** confidentiality rests on that channel being locked down. No contact details are
+  collected (removed 2026-11-20 — see *Privacy and anti-scam*), so the bridge carries only the feedback
+  text, the opt-in sharing flag and the auto-attached context, never PII. A dashboard or a Logos-native
+  destination can replace the Discord bridge later.
 - **Alternative, not now:** encrypt-to-many, so each recipient decrypts independently (wrap a content
   key per recipient public key). More build, and adding a teammate means a Feedback app update.
 

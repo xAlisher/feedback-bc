@@ -19,9 +19,10 @@ from nacl.encoding import HexEncoder
 LIMITS = {
     "title_max": 120,
     "message_max": 2000,
-    "contact_max": 200,
     "answer_max": 1000,
     "max_answers": 10,
+    "ref_max": 16,               # reference code, e.g. "FB-7K3Q"
+    "ctx_max": 64,               # each auto-attached context string (build / os / basecamp)
     "payload_max_bytes": 8192,   # hard cap on the decrypted JSON
 }
 TOPICS = ["home", "app", "package-manager", "node", "wallet", "delivery", "messaging", "onboarding", "other"]
@@ -48,7 +49,16 @@ def validate_payload(p: dict) -> dict:
     if kind not in ("quick", "questionnaire"):
         raise FeedbackError(f"bad kind: {kind!r}")
     _check_len("title", p.get("title"), LIMITS["title_max"])
-    _check_len("contact", p.get("contact"), LIMITS["contact_max"])
+    # Contact collection was removed (phishing risk); reject any payload that still carries it.
+    if p.get("contact"):
+        raise FeedbackError("contact is no longer accepted")
+    # Opt-in public-sharing flag, reference code, and auto-attached context (all optional).
+    ps = p.get("public_share")
+    if ps is not None and not isinstance(ps, bool):
+        raise FeedbackError("public_share must be a boolean")
+    _check_len("ref", p.get("ref"), LIMITS["ref_max"])
+    for f in ("build", "os", "basecamp"):
+        _check_len(f, p.get(f), LIMITS["ctx_max"])
     topic = p.get("topic")
     if topic is not None and topic not in TOPICS:
         raise FeedbackError(f"unknown topic: {topic!r}")

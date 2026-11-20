@@ -12,6 +12,7 @@ install(FILES
 
 install(FILES
     Main.qml
+    net.js
     DESTINATION "${UI_DIR}"
 )
 

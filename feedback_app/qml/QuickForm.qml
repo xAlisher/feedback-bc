@@ -1,6 +1,8 @@
-// Quick feedback form — STRUCTURAL DRAFT.
-// Port to Logos.Controls / Logos.Theme and the mobile-ready-ui patterns (390/700/1280) during the
-// build; wire `core.send(...)` to the native core. Size limits mirror feedback_common.LIMITS.
+// Quick feedback form — STRUCTURAL DRAFT, SUPERSEDED.
+// The shipped app is the tabbed app-module/ui/Main.qml (and xAlisher/feedback-app). This early draft
+// is kept for reference only. No contact field: contact collection was removed end to end
+// (feedback-bc#21) — do not reintroduce it here. The privacy note, opt-in sharing checkbox, anti-scam
+// note, reference code and auto-context all live in the shipped Main.qml.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -48,15 +50,9 @@ Item {
             opacity: 0.6; font.pixelSize: 12
         }
 
-        TextField {
-            id: contact
-            Layout.fillWidth: true
-            placeholderText: "Contact (optional)"
-            maximumLength: 200
-        }
         Label {
-            text: "Only the Logos team can read your response."
-            opacity: 0.6; font.pixelSize: 12
+            text: "Your feedback goes to our private Discord channel. Please don't include any personal data."
+            opacity: 0.6; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true
         }
 
         Button {
@@ -66,7 +62,7 @@ Item {
                 root.core.send({
                     v: 1, kind: "quick",
                     title: title.text, topic: root.topics[topic.currentIndex],
-                    message: message.text, contact: contact.text
+                    message: message.text
                 })
                 root.sent = true   // core also queues if blocked (degraded mode)
             }
@@ -80,6 +76,6 @@ Item {
         spacing: 10
         visible: root.sent
         Label { text: "Thanks — your feedback was sent."; font.pixelSize: 18 }
-        Button { text: "Send another"; onClicked: { title.text=""; message.text=""; contact.text=""; root.sent=false } }
+        Button { text: "Send another"; onClicked: { title.text=""; message.text=""; root.sent=false } }
     }
 }

@@ -27,7 +27,7 @@ README's "What is verified"); the core just ports the proven `feedback_common` l
 ## Contract (shared with the Desk)
 
 - Payload schema + size limits: see `feedback_desk/feedback_common.py` (title 120, message 2000,
-  contact 200, answer 1000, ≤10 answers, 8 KB total).
+  answer 1000, ≤10 answers, ref 16, context 64, 8 KB total). No contact field (removed, feedback-bc#21).
 - Seal target: `pubkey.txt` (the deployed Desk's X25519 public key).
 - Topics (4-segment Waku): `/logos-feedback/1/quick/json`, `/logos-feedback/1/questionnaire/json`.
 - Wire: `send` the bytes `base64(crypto_box_seal(payload_json))`.
@@ -59,7 +59,8 @@ CSPRNG) for the seal, delivery from C++ or QML, QML UI. Correct crypto, but a re
 **Decision — RESOLVED (headless probe, 2026-11-04): Option B.** Ran a QML probe on a headless sway
 (Qt 6.9.2): **`crypto` is undefined in the V4 JS engine** (`crypto is not defined`), so there is no
 WebCrypto CSPRNG. A pure-JS sealed box would fall back to `Math.random` for the ephemeral key, which
-weakens confidentiality — not acceptable for a payload carrying contact PII. So the seal goes native.
+weakens confidentiality — not acceptable for a sensitive feedback payload (criticism should stay
+unattributable even though no contact details are collected). So the seal goes native.
 
 **Scope of the native core is minimal:** delivery stays in QML (`logos.callModule`, proven); only one
 function needs C++/libsodium — `seal(pubHex, payloadJson) -> base64(crypto_box_seal)` (which brings
